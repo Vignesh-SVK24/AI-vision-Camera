@@ -1,0 +1,15 @@
+# Core dependencies (Windows CPU-only)
+# For CPU-only PyTorch with ultralytics on Windows, install torch/torchvision
+# from the PyTorch CPU index first if needed:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+opencv-python
+ultralytics
+numpy
+python-dotenv
+pytest
+fastapi
+uvicorn
+python-multipart
+httpx
+argon2-cffi
+PyJWT

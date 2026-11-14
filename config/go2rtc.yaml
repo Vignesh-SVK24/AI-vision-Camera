@@ -1,0 +1,25 @@
+# go2rtc local WebRTC bridge configuration.
+# Credentials and network bindings are injected at runtime from .env via tools/run_go2rtc.py.
+# Never hardcode camera passwords or secrets in this file.
+
+api:
+  # Bind strictly to localhost so go2rtc HTTP/WHEP signaling and config APIs
+  # are never exposed directly to the LAN, Tailnet, or public internet.
+  listen: "127.0.0.1:1984"
+
+rtsp:
+  # Disable RTSP re-streaming output so RTSP is never exposed outside the PC.
+  listen: ""
+
+streams:
+  camera_sub:
+    - "rtsp://${GO2RTC_CAMERA_USER}:${GO2RTC_CAMERA_PASS}@${CAMERA_IP}:${CAMERA_PORT}/${CAMERA_SUB_STREAM}"
+
+webrtc:
+  listen: "${GO2RTC_WEBRTC_LISTEN}"
+  candidates:
+    - "${GO2RTC_WEBRTC_CANDIDATE}"
+
+log:
+  level: "info"
+  format: "text"

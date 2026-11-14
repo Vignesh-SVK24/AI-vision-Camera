@@ -1,0 +1,37 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Databases & runtime artifacts
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+snapshots/
+faces_data/
+models/
+logs/
+*.log*
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# Frontend dashboard build & dependencies
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/

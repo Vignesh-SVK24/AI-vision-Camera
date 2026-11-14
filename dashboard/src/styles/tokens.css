@@ -1,0 +1,88 @@
+:root {
+  /* Core brand & surface palette */
+  --color-bg-canvas: #f0f5f7;
+  --color-ink-primary: #162623;
+  --color-accent-primary: #295255;
+  --color-accent-muted: #577877;
+
+  /* Derived readable ink & status tokens */
+  --color-ink-secondary: #344d4a;
+  --color-ink-muted: #4b6865;
+  --color-ink-on-accent: #f0f5f7;
+
+  --color-success: #146c43;
+  --color-success-bg: rgba(20, 108, 67, 0.12);
+  --color-warning: #9a4706;
+  --color-warning-bg: rgba(181, 71, 8, 0.12);
+  --color-danger: #b42318;
+  --color-danger-bg: rgba(180, 35, 24, 0.12);
+
+  /* Liquid Glass gradients & borders */
+  --glass-bg-card: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.76) 0%,
+    rgba(240, 245, 247, 0.52) 100%
+  );
+  --glass-bg-elevated: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(240, 245, 247, 0.68) 100%
+  );
+  --glass-bg-nav: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.84) 0%,
+    rgba(240, 245, 247, 0.64) 100%
+  );
+  --glass-bg-primary-btn: linear-gradient(
+    135deg,
+    #295255 0%,
+    #366669 55%,
+    #214346 100%
+  );
+  --glass-bg-secondary-btn: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(240, 245, 247, 0.58) 100%
+  );
+  --glass-border: 1px solid rgba(255, 255, 255, 0.82);
+  --glass-border-subtle: 1px solid rgba(41, 82, 85, 0.16);
+  --glass-highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --glass-blur: blur(18px) saturate(165%);
+
+  /* Radii */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-pill: 9999px;
+
+  /* Shadows & glows */
+  --shadow-glass-sm: 0 4px 16px rgba(22, 38, 35, 0.06), var(--glass-highlight-top);
+  --shadow-glass-md: 0 12px 32px rgba(22, 38, 35, 0.08), var(--glass-highlight-top);
+  --shadow-glass-lg: 0 22px 52px rgba(22, 38, 35, 0.14), var(--glass-highlight-top);
+  --glow-hover: 0 0 0 1px rgba(41, 82, 85, 0.22), 0 14px 34px rgba(41, 82, 85, 0.18);
+  --glow-accent: 0 8px 24px rgba(41, 82, 85, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  --glow-focus: 0 0 0 3px rgba(41, 82, 85, 0.28);
+
+  /* Layout, spacing & touch targets */
+  --touch-target-min: 44px;
+  --container-max: 1200px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* iOS Safe Area insets */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Motion */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+}
