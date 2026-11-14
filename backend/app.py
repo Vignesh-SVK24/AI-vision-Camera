@@ -203,6 +203,13 @@ def create_app(
     )
     app.add_middleware(SecurityHeadersMiddleware)
 
+    @app.middleware("http")
+    async def strip_api_prefix_middleware(request: Request, call_next: Any) -> Response:
+        path = request.scope.get("path", "")
+        if path.startswith("/api/"):
+            request.scope["path"] = path[4:]
+        return await call_next(request)
+
     app.state.settings = cfg
     app.state.db = database
     app.state.auth = auth_service

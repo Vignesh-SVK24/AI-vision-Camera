@@ -18,8 +18,7 @@ export const CUSTOM_API_URL_KEY = "vs_custom_api_url";
 export function getApiBaseUrl(): string {
   const custom = typeof window !== "undefined" ? window.localStorage.getItem(CUSTOM_API_URL_KEY) : null;
   if (custom && custom.trim()) {
-    const clean = custom.trim().replace(/\/$/, "");
-    return clean.endsWith("/api") ? clean : `${clean}/api`;
+    return custom.trim().replace(/\/$/, "");
   }
   return (
     import.meta.env.VITE_API_BASE_URL as string | undefined
@@ -171,9 +170,9 @@ async function authorizedFetch(
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
-  } catch {
+  } catch (err: any) {
     throw new ApiError(
-      "Cannot reach backend API. Verify the server is running on localhost:8000.",
+      `Cannot reach backend API at ${getApiBaseUrl()}. Check server status or tunnel URL. (${err?.message || "Network Error"})`,
       0
     );
   }
@@ -215,9 +214,9 @@ export const apiClient = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-    } catch {
+    } catch (err: any) {
       throw new ApiError(
-        "Cannot reach backend API. Verify the server is running on localhost:8000.",
+        `Cannot reach backend API at ${getApiBaseUrl()}. Check server status or tunnel URL. (${err?.message || "Network Error"})`,
         0
       );
     }

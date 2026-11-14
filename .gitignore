@@ -35,3 +35,7 @@ htmlcov/
 dashboard/node_modules/
 dashboard/dist/
 dashboard/.vite/
+
+# Standalone tools & binaries
+*.exe
+tools/cloudflared.exe
