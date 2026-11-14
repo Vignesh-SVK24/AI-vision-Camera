@@ -13,10 +13,33 @@ import type {
 
 const ACCESS_TOKEN_KEY = "vs_access_token";
 const REFRESH_TOKEN_KEY = "vs_refresh_token";
+export const CUSTOM_API_URL_KEY = "vs_custom_api_url";
 
-export const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL as string | undefined
-)?.replace(/\/$/, "") || "/api";
+export function getApiBaseUrl(): string {
+  const custom = typeof window !== "undefined" ? window.localStorage.getItem(CUSTOM_API_URL_KEY) : null;
+  if (custom && custom.trim()) {
+    const clean = custom.trim().replace(/\/$/, "");
+    return clean.endsWith("/api") ? clean : `${clean}/api`;
+  }
+  return (
+    import.meta.env.VITE_API_BASE_URL as string | undefined
+  )?.replace(/\/$/, "") || "/api";
+}
+
+export function setCustomApiUrl(url: string | null): void {
+  if (typeof window === "undefined") return;
+  if (!url || !url.trim()) {
+    window.localStorage.removeItem(CUSTOM_API_URL_KEY);
+  } else {
+    window.localStorage.setItem(CUSTOM_API_URL_KEY, url.trim().replace(/\/$/, ""));
+  }
+}
+
+export function getCustomApiUrl(): string {
+  return (typeof window !== "undefined" && window.localStorage.getItem(CUSTOM_API_URL_KEY)) || "";
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
@@ -49,8 +72,13 @@ export function clearTokens(): void {
 }
 
 function buildWsUrl(path: string, token: string): string {
-  const configured = import.meta.env.VITE_WS_BASE_URL as string | undefined;
+  const custom = typeof window !== "undefined" ? window.localStorage.getItem(CUSTOM_API_URL_KEY) : null;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (custom && custom.trim()) {
+    const wsBase = custom.trim().replace(/^http/i, "ws").replace(/\/api$/, "");
+    return `${wsBase}${normalizedPath}?token=${encodeURIComponent(token)}`;
+  }
+  const configured = import.meta.env.VITE_WS_BASE_URL as string | undefined;
   if (configured) {
     return `${configured.replace(/\/$/, "")}${normalizedPath}?token=${encodeURIComponent(token)}`;
   }
@@ -106,7 +134,7 @@ async function refreshAccessToken(): Promise<string | null> {
     }
 
     try {
-      const resp = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const resp = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refresh }),
@@ -142,7 +170,7 @@ async function authorizedFetch(
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+    response = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
   } catch {
     throw new ApiError(
       "Cannot reach backend API. Verify the server is running on localhost:8000.",
@@ -155,7 +183,7 @@ async function authorizedFetch(
     if (nextToken) {
       const retryHeaders = new Headers(init.headers);
       retryHeaders.set("Authorization", `Bearer ${nextToken}`);
-      response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: retryHeaders });
+      response = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers: retryHeaders });
     }
   }
 
@@ -182,7 +210,7 @@ export const apiClient = {
   async login(username: string, password: string): Promise<TokenResponse> {
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}/auth/login`, {
+      response = await fetch(`${getApiBaseUrl()}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),

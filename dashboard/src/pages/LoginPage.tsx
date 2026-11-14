@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ApiError } from "../api/client";
+import { ApiError, getCustomApiUrl, setCustomApiUrl } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { Button, Chip, GlassCard, Input } from "../components/ui";
 
@@ -7,6 +7,9 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [serverUrl, setServerUrl] = useState(() => getCustomApiUrl());
+  const isCloudHost = typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const [showServerConfig, setShowServerConfig] = useState(() => isCloudHost || !!getCustomApiUrl());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +21,7 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
+    setCustomApiUrl(serverUrl.trim() || null);
     setSubmitting(true);
     try {
       await login(username.trim(), password);
@@ -29,7 +33,7 @@ export const LoginPage: React.FC = () => {
             : err.message
         );
       } else {
-        setError("Login failed. Please try again.");
+        setError("Login failed. Check your credentials and backend server URL.");
       }
     } finally {
       setSubmitting(false);
@@ -78,6 +82,43 @@ export const LoginPage: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowServerConfig((prev) => !prev)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "rgba(255, 255, 255, 0.7)",
+                cursor: "pointer",
+                fontSize: "0.82rem",
+                padding: "0.25rem 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.35rem",
+              }}
+            >
+              ⚙️ {showServerConfig ? "Hide" : "Configure"} Backend URL (for Vercel / Cloud)
+            </button>
+            {showServerConfig && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <Input
+                  label="Backend Server URL"
+                  name="serverUrl"
+                  placeholder="e.g. https://brown-lamps-strive.loca.lt"
+                  value={serverUrl}
+                  onChange={(e) => {
+                    setServerUrl(e.target.value);
+                    setCustomApiUrl(e.target.value.trim() || null);
+                  }}
+                />
+                <p style={{ fontSize: "0.76rem", color: "rgba(255, 255, 255, 0.6)", marginTop: "0.25rem" }}>
+                  Paste your active tunnel URL (e.g. https://xxx.loca.lt) when accessing from Vercel.
+                </p>
+              </div>
+            )}
+          </div>
 
           <Button type="submit" variant="primary" fullWidth loading={submitting}>
             Sign In

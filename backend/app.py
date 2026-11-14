@@ -196,9 +196,10 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(cfg.cors_allowed_origins),
+        allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.github\.io|https://.*\.loca\.lt|http://localhost:\d+|http://127\.0\.0\.1:\d+",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["*"],
     )
     app.add_middleware(SecurityHeadersMiddleware)
 
