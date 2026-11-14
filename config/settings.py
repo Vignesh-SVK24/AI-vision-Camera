@@ -63,6 +63,11 @@ class Settings:
     camera_main_stream: str = "stream1"
     camera_sub_stream: str = "stream2"
     camera_source: str = ""
+    webcam_index: int = 0
+    webcam_backend: str = "dshow"
+    webcam_width: int = 1280
+    webcam_height: int = 720
+    webcam_fps: int = 30
 
     # RTSP recovery & watchdog
     rtsp_reconnect_initial_delay: float = 1.0
@@ -233,6 +238,11 @@ def load_settings(env_file: Optional[Path | str] = None, override: bool = False)
         camera_main_stream=os.getenv("CAMERA_MAIN_STREAM", "stream1").strip() or "stream1",
         camera_sub_stream=os.getenv("CAMERA_SUB_STREAM", "stream2").strip() or "stream2",
         camera_source=os.getenv("CAMERA_SOURCE", "").strip(),
+        webcam_index=max(0, _parse_int(os.getenv("WEBCAM_INDEX"), 0)),
+        webcam_backend=os.getenv("WEBCAM_BACKEND", "dshow").strip().lower() or "dshow",
+        webcam_width=max(160, _parse_int(os.getenv("WEBCAM_WIDTH"), 1280)),
+        webcam_height=max(120, _parse_int(os.getenv("WEBCAM_HEIGHT"), 720)),
+        webcam_fps=max(1, _parse_int(os.getenv("WEBCAM_FPS"), 30)),
         rtsp_reconnect_initial_delay=max(
             0.05, _parse_float(os.getenv("RTSP_RECONNECT_INITIAL_DELAY"), 1.0)
         ),

@@ -62,7 +62,7 @@ def ensure_rtsp_tcp_transport() -> str:
     return updated
 
 
-def parse_webcam_source(source: Any) -> Optional[int]:
+def parse_webcam_source(source: Any, default_index: int = 0) -> Optional[int]:
     """Return non-negative webcam index for int, digit string, 'webcam', or 'webcam:<idx>'."""
     if isinstance(source, bool):
         return None
@@ -72,33 +72,61 @@ def parse_webcam_source(source: Any) -> Optional[int]:
         return None
     text = source.strip().lower()
     if text == "webcam":
-        return 0
+        return default_index
     if text.startswith("webcam:"):
         raw_idx = text.split(":", 1)[1].strip()
-        return int(raw_idx) if raw_idx.isdigit() else None
+        return int(raw_idx) if raw_idx.isdigit() else default_index
     if text.isdigit():
         return int(text)
     return None
 
 
-def default_capture_factory(source: Any, use_rtsp: bool) -> Any:
-    """Create an OpenCV VideoCapture for RTSP (TCP), DirectShow webcam, or video file."""
+def default_capture_factory(
+    source: Any,
+    use_rtsp: bool = False,
+    *,
+    backend: Optional[str] = None,
+    default_index: int = 0,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+) -> Any:
+    """Create an OpenCV VideoCapture for RTSP (TCP), DirectShow/MSMF webcam, or video file."""
     import cv2
 
-    webcam_index = None if use_rtsp else parse_webcam_source(source)
+    webcam_index = None if use_rtsp else parse_webcam_source(source, default_index=default_index)
     if use_rtsp:
         ensure_rtsp_tcp_transport()
         cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
     elif webcam_index is not None:
-        dshow = getattr(cv2, "CAP_DSHOW", None)
-        cap = (
-            cv2.VideoCapture(webcam_index, dshow)
-            if dshow is not None
-            else cv2.VideoCapture(webcam_index)
-        )
+        backend_name = (backend or "").strip().lower()
+        if backend_name == "msmf":
+            backend_api = getattr(cv2, "CAP_MSMF", cv2.CAP_ANY)
+        elif backend_name == "dshow":
+            backend_api = getattr(cv2, "CAP_DSHOW", cv2.CAP_ANY)
+        elif backend_name == "default":
+            backend_api = cv2.CAP_ANY
+        else:
+            backend_api = getattr(cv2, "CAP_DSHOW", cv2.CAP_ANY)
+
+        cap = cv2.VideoCapture(webcam_index, backend_api)
+        is_opened_fn = getattr(cap, "isOpened", None)
+        if is_opened_fn is not None and not is_opened_fn() and backend_api != cv2.CAP_ANY:
+            fallback_api = (
+                getattr(cv2, "CAP_MSMF", cv2.CAP_ANY)
+                if backend_api == getattr(cv2, "CAP_DSHOW", None)
+                else getattr(cv2, "CAP_DSHOW", cv2.CAP_ANY)
+            )
+            try:
+                cap.release()
+            except Exception:
+                pass
+            cap = cv2.VideoCapture(webcam_index, fallback_api)
+
+        req_w = width if width is not None else 1280
+        req_h = height if height is not None else 720
         try:
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, req_w)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, req_h)
         except Exception:
             pass
     else:
@@ -131,6 +159,8 @@ class RTSPCamera:
         reconnect_max_delay: Optional[float] = None,
         stale_timeout: Optional[float] = None,
         loop_video: bool = True,
+        webcam_index: Optional[int] = None,
+        webcam_backend: Optional[str] = None,
         capture_factory: Optional[CaptureFactory] = None,
         monotonic_fn: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -142,6 +172,10 @@ class RTSPCamera:
         self._password = cfg.camera_pass if password is None else password
         self._main_stream = cfg.camera_main_stream if main_stream is None else main_stream
         self._sub_stream = cfg.camera_sub_stream if sub_stream is None else sub_stream
+        self._webcam_index = cfg.webcam_index if webcam_index is None else webcam_index
+        self._webcam_backend = cfg.webcam_backend if webcam_backend is None else webcam_backend
+        self._webcam_width = cfg.webcam_width
+        self._webcam_height = cfg.webcam_height
 
         normalized_stream = stream.strip().lower()
         if normalized_stream not in ("main", "sub"):
@@ -166,7 +200,17 @@ class RTSPCamera:
             cfg.rtsp_stale_timeout if stale_timeout is None else stale_timeout,
         )
         self._loop_video = loop_video
-        self._capture_factory = capture_factory or default_capture_factory
+        if capture_factory is not None:
+            self._capture_factory = capture_factory
+        else:
+            self._capture_factory = lambda src, is_rtsp=False: default_capture_factory(
+                src,
+                is_rtsp,
+                backend=self._webcam_backend,
+                default_index=self._webcam_index,
+                width=self._webcam_width,
+                height=self._webcam_height,
+            )
         self._monotonic = monotonic_fn
 
         self._secrets: tuple[str, ...] = tuple(
@@ -212,7 +256,9 @@ class RTSPCamera:
             self._active_source = selected_url
 
         self._is_rtsp = is_rtsp_source(self._active_source)
-        self._is_webcam = (not self._is_rtsp) and (parse_webcam_source(self._active_source) is not None)
+        self._is_webcam = (not self._is_rtsp) and (
+            parse_webcam_source(self._active_source, default_index=self._webcam_index) is not None
+        )
         self._is_file_source = (
             isinstance(self._active_source, str)
             and not self._is_rtsp
@@ -397,7 +443,7 @@ class RTSPCamera:
         try:
             cap = self._capture_factory(self._active_source, self._is_rtsp)
         except Exception as exc:
-            logger.warning(
+            logger.error(
                 "Failed to open camera source %s: %s",
                 self.masked_source,
                 mask_sensitive_text(str(exc), self._secrets),
@@ -405,6 +451,22 @@ class RTSPCamera:
             return None
 
         if cap is None or not cap.isOpened():
+            if self._is_webcam:
+                logger.error(
+                    "Webcam open failed for index %d using backend '%s'.",
+                    self._webcam_index,
+                    self._webcam_backend,
+                )
+                logger.error(
+                    "Likely causes and fixes:\n"
+                    "  1. Another application is currently using the camera (Zoom, Teams, Skype, Windows Camera app).\n"
+                    "  2. Windows camera privacy settings: Check Settings -> Privacy & security -> Camera -> 'Let desktop apps access your camera'.\n"
+                    "  3. Wrong camera index: Verify index with 'python tools/diagnose_cameras.py' and update WEBCAM_INDEX in .env.\n"
+                    "  4. Backend issue: Try switching WEBCAM_BACKEND in .env (dshow or msmf)."
+                )
+            else:
+                logger.warning("Failed to open camera source %s", self.masked_source)
+
             if cap is not None:
                 try:
                     cap.release()

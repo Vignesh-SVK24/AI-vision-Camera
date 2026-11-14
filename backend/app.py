@@ -741,7 +741,7 @@ def create_app(
         except WebSocketDisconnect:
             logger.debug("Live stream WebSocket client disconnected.")
         finally:
-            await asyncio.to_thread(active_live_manager.release)
+            active_live_manager.release()
 
     return app
 
