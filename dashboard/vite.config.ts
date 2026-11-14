@@ -13,7 +13,7 @@ const proxyConfig = {
   },
 };
 
-const allowedHosts = [".ts.net", "localhost", "127.0.0.1"];
+const allowedHosts = true;
 
 export default defineConfig({
   plugins: [react()],
