@@ -44,8 +44,14 @@ const VALID_ROUTES = new Set<AppRoute>([
 ]);
 
 function normalizeRoute(pathname: string): AppRoute {
-  if (!pathname || pathname === "/") return "/overview";
-  const withSlash = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  let path = pathname;
+  if (window.location.hash && window.location.hash.length > 1) {
+    path = window.location.hash.replace(/^#/, "");
+  }
+  // Strip repository subpath if hosted on GitHub Pages (/AI-vision-Camera/...)
+  path = path.replace(/^\/AI-vision-Camera/i, "");
+  if (!path || path === "/" || path === "") return "/overview";
+  const withSlash = path.startsWith("/") ? path : `/${path}`;
   const trimmed = withSlash.length > 1 ? withSlash.replace(/\/+$/, "") : withSlash;
   return VALID_ROUTES.has(trimmed as AppRoute)
     ? (trimmed as AppRoute)
@@ -154,19 +160,21 @@ const DashboardShell: React.FC = () => {
 
   const navigate = useCallback((target: string) => {
     const next = normalizeRoute(target);
-    if (window.location.pathname !== next) {
-      window.history.pushState(null, "", next);
-    }
+    window.location.hash = next;
     setRoute(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
-    const onPopState = () => {
-      setRoute(normalizeRoute(window.location.pathname));
+    const onLocationChange = () => {
+      setRoute(normalizeRoute(window.location.hash || window.location.pathname));
     };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    window.addEventListener("popstate", onLocationChange);
+    window.addEventListener("hashchange", onLocationChange);
+    return () => {
+      window.removeEventListener("popstate", onLocationChange);
+      window.removeEventListener("hashchange", onLocationChange);
+    };
   }, []);
 
   useEffect(() => {
