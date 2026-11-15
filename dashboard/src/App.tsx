@@ -2,91 +2,46 @@ import React, { useCallback, useEffect, useState } from "react";
 import type { EventItem } from "./api/types";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import {
-  BottomNav,
-  Button,
-  Chip,
+  Dock,
   GlassCard,
-  NavBar,
+  SideRail,
   Skeleton,
   ToastStack,
   type NavItem,
   type ToastData,
 } from "./components/ui";
-import { DesignDemoPage } from "./pages/DesignDemoPage";
 import { EventsPage } from "./pages/EventsPage";
-import { LivePage } from "./pages/LivePage";
+import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
-import { NotificationsPage } from "./pages/NotificationsPage";
-import { OverviewPage } from "./pages/OverviewPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { ZonesPage } from "./pages/ZonesPage";
 
-type AppRoute =
-  | "/overview"
-  | "/live"
-  | "/events"
-  | "/people"
-  | "/zones"
-  | "/notifications"
-  | "/settings"
-  | "/design";
+export type AppRoute = "/" | "/events" | "/people" | "/settings";
 
-const VALID_ROUTES = new Set<AppRoute>([
-  "/overview",
-  "/live",
-  "/events",
-  "/people",
-  "/zones",
-  "/notifications",
-  "/settings",
-  "/design",
-]);
+const VALID_ROUTES = new Set<AppRoute>(["/", "/events", "/people", "/settings"]);
 
 function normalizeRoute(pathname: string): AppRoute {
   let path = pathname;
   if (window.location.hash && window.location.hash.length > 1) {
     path = window.location.hash.replace(/^#/, "");
   }
-  // Strip repository subpath if hosted on GitHub Pages (/AI-vision-Camera/...)
+  // Strip subpath if hosted under repo root
   path = path.replace(/^\/AI-vision-Camera/i, "");
-  if (!path || path === "/" || path === "") return "/overview";
+  if (!path || path === "" || path === "/overview" || path === "/live") return "/";
+  if (path === "/zones" || path === "/notifications") return path === "/zones" ? "/settings" : "/events";
   const withSlash = path.startsWith("/") ? path : `/${path}`;
   const trimmed = withSlash.length > 1 ? withSlash.replace(/\/+$/, "") : withSlash;
-  return VALID_ROUTES.has(trimmed as AppRoute)
-    ? (trimmed as AppRoute)
-    : "/overview";
+  return VALID_ROUTES.has(trimmed as AppRoute) ? (trimmed as AppRoute) : "/";
 }
 
-const DESKTOP_NAV_ITEMS: NavItem[] = [
-  { id: "/overview", label: "Overview", href: "/overview" },
-  { id: "/live", label: "Live", href: "/live" },
-  { id: "/events", label: "Events", href: "/events" },
-  { id: "/people", label: "People", href: "/people" },
-  { id: "/zones", label: "Zones", href: "/zones" },
-  { id: "/notifications", label: "Alerts", href: "/notifications" },
-  { id: "/settings", label: "Settings", href: "/settings" },
-];
-
-const MOBILE_BOTTOM_ITEMS: NavItem[] = [
+const NAV_ITEMS: NavItem[] = [
   {
-    id: "/overview",
+    id: "/",
     label: "Home",
-    href: "/overview",
+    href: "/",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
-      </svg>
-    ),
-  },
-  {
-    id: "/live",
-    label: "Live",
-    href: "/live",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M23 7l-7 5 7 5V7z" />
-        <rect x="1" y="5" width="15" height="14" rx="2" />
       </svg>
     ),
   },
@@ -95,7 +50,7 @@ const MOBILE_BOTTOM_ITEMS: NavItem[] = [
     label: "Events",
     href: "/events",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
       </svg>
     ),
@@ -105,7 +60,7 @@ const MOBILE_BOTTOM_ITEMS: NavItem[] = [
     label: "People",
     href: "/people",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -114,12 +69,13 @@ const MOBILE_BOTTOM_ITEMS: NavItem[] = [
     ),
   },
   {
-    id: "/zones",
-    label: "Zones",
-    href: "/zones",
+    id: "/settings",
+    label: "Settings",
+    href: "/settings",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 22 8.5 18 21 6 21 2 8.5 12 2" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+        <circle cx="12" cy="12" r="3" />
       </svg>
     ),
   },
@@ -143,9 +99,9 @@ function toastToneForEvent(ev: EventItem): ToastData["tone"] {
 }
 
 const DashboardShell: React.FC = () => {
-  const { user, isLoading, wsConnected, logout, subscribeEvents } = useAuth();
+  const { user, isLoading, logout, subscribeEvents } = useAuth();
   const [route, setRoute] = useState<AppRoute>(() =>
-    normalizeRoute(window.location.pathname)
+    normalizeRoute(window.location.hash || window.location.pathname)
   );
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
@@ -183,16 +139,12 @@ const DashboardShell: React.FC = () => {
       const who = ev.person_name ? ev.person_name : "Unknown";
       const where = ev.zone_name ? ` · ${ev.zone_name}` : "";
       pushToast({
-        title: ev.event_type,
+        title: ev.event_type.replace(/_/g, " "),
         description: ev.message || `${who}${where}`,
         tone: toastToneForEvent(ev),
       });
     });
   }, [pushToast, subscribeEvents, user]);
-
-  if (route === "/design") {
-    return <DesignDemoPage />;
-  }
 
   if (isLoading) {
     return (
@@ -213,59 +165,27 @@ const DashboardShell: React.FC = () => {
   }
 
   return (
-    <div className="app-shell">
-      <NavBar
-        title="VisionGuard"
-        items={DESKTOP_NAV_ITEMS}
+    <div className="lg-app-layout">
+      {/* Desktop Navigation: Slim Glass Side Rail */}
+      <SideRail
+        items={NAV_ITEMS}
         activeId={route}
         onSelect={navigate}
-        rightSlot={
-          <div className="row-wrap">
-            <Chip
-              label={wsConnected ? "Live WS" : "WS Reconnecting"}
-              variant={wsConnected ? "success" : "warning"}
-              dot
-            />
-            <Button variant="secondary" size="sm" onClick={logout}>
-              Sign Out
-            </Button>
-          </div>
-        }
+        onLogout={logout}
+        brandTitle="VisionGuard"
       />
 
-      <div className="page-container" style={{ paddingBottom: 0 }}>
-        <div className="mobile-subnav-bar" aria-label="Additional sections">
-          <Chip
-            label="Alerts"
-            selected={route === "/notifications"}
-            onClick={() => navigate("/notifications")}
-          />
-          <Chip
-            label="Settings"
-            selected={route === "/settings"}
-            onClick={() => navigate("/settings")}
-          />
-          <Chip
-            label={wsConnected ? "Live WS" : "Offline WS"}
-            variant={wsConnected ? "success" : "warning"}
-            dot
-          />
-          <Chip label="Sign Out" variant="danger" onClick={logout} />
-        </div>
-      </div>
-
-      <main>
-        {route === "/overview" ? <OverviewPage onNavigate={navigate} /> : null}
-        {route === "/live" ? <LivePage onNavigate={navigate} /> : null}
+      {/* Main Content Area */}
+      <main className="lg-main-viewport">
+        {route === "/" ? <HomePage /> : null}
         {route === "/events" ? <EventsPage /> : null}
         {route === "/people" ? <PeoplePage onNotify={pushToast} /> : null}
-        {route === "/zones" ? <ZonesPage onNotify={pushToast} /> : null}
-        {route === "/notifications" ? <NotificationsPage /> : null}
         {route === "/settings" ? <SettingsPage onNotify={pushToast} /> : null}
       </main>
 
-      <BottomNav
-        items={MOBILE_BOTTOM_ITEMS}
+      {/* Mobile Navigation: Floating Glass Dock */}
+      <Dock
+        items={NAV_ITEMS}
         activeId={route}
         onSelect={navigate}
       />

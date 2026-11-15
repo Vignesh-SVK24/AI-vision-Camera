@@ -1,8 +1,17 @@
+import type React from "react";
+
+export interface NavItem {
+  id: string;
+  label: string;
+  href?: string;
+  icon?: React.ReactNode;
+}
+
 export { GlassCard, type GlassCardProps } from "./GlassCard";
 export { Button, type ButtonProps } from "./Button";
 export { Chip, type ChipProps, type ChipVariant } from "./Chip";
-export { NavBar, type NavBarProps, type NavItem } from "./NavBar";
-export { BottomNav, type BottomNavProps } from "./BottomNav";
+export { SideRail } from "./SideRail";
+export { Dock } from "./Dock";
 export { Modal, type ModalProps } from "./Modal";
 export {
   Toast,
