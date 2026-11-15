@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.auth import create_owner_account
+from backend.auth import create_owner_account, reset_owner_password
 from config.logging_config import setup_logging
 from config.settings import get_settings
 from storage.db import Database
@@ -21,7 +21,7 @@ from storage.db import Database
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create the local owner account for the backend API."
+        description="Create or reset the local owner account for the backend API."
     )
     parser.add_argument(
         "--username",
@@ -32,6 +32,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--password",
         default=None,
         help="Optional password (omit to enter securely via prompt).",
+    )
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Reset password if user already exists.",
     )
     return parser.parse_args(argv)
 
@@ -52,6 +57,19 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     with Database(settings=settings) as db:
         try:
+            existing = db.get_user_by_username(args.username)
+            if existing is not None:
+                if args.reset:
+                    reset_owner_password(db, username=args.username, new_password=password)
+                    print(f"Password reset successfully for owner account '{args.username}'.")
+                    return 0
+                else:
+                    print(
+                        f"Error: User '{args.username}' already exists. Use --reset to update their password.",
+                        file=sys.stderr,
+                    )
+                    return 1
+
             user_id = create_owner_account(
                 db,
                 username=args.username,

@@ -69,6 +69,34 @@ def create_owner_account(
     return user_id
 
 
+def reset_owner_password(
+    db: Database,
+    *,
+    username: str,
+    new_password: str,
+) -> bool:
+    """Reset the password for an existing owner or user account from CLI."""
+    clean_user = username.strip()
+    if not clean_user:
+        raise ValueError("Username must not be empty.")
+    if db.get_user_by_username(clean_user) is None:
+        raise ValueError(f"User '{clean_user}' does not exist.")
+
+    pw_hash = hash_password(new_password)
+    updated = db.update_user_password(
+        username=clean_user,
+        password_hash=pw_hash,
+    )
+    if updated:
+        db.record_audit(
+            actor="cli",
+            action="reset_password",
+            target_type="user",
+            details={"username": clean_user},
+        )
+    return updated
+
+
 class AuthService:
     """Issues and validates JWT access and refresh tokens."""
 

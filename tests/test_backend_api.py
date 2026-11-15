@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app import create_app
-from backend.auth import create_owner_account
+from backend.auth import create_owner_account, reset_owner_password
 from config.settings import Settings
 from events.event_manager import EventManager
 from faces.face_engine import DetectedFace, FaceEngine, l2_normalize
@@ -167,6 +167,15 @@ async def test_auth_login_refresh_rate_limit_and_cors(tmp_path: Path) -> None:
             )
             assert bad_cors.status_code == 200
             assert "access-control-allow-origin" not in bad_cors.headers
+
+            # Reset owner2 password and verify login works with new password
+            assert reset_owner_password(db, username="owner2", new_password="NewSecretPassword88!") is True
+            new_login = await client.post(
+                "/auth/login",
+                json={"username": "owner2", "password": "NewSecretPassword88!"},
+            )
+            assert new_login.status_code == 200
+            assert "access_token" in new_login.json()
     finally:
         db.close()
 

@@ -664,6 +664,24 @@ class Database:
                 )
                 return int(cur.lastrowid)
 
+    def update_user_password(
+        self,
+        *,
+        username: str,
+        password_hash: str,
+    ) -> bool:
+        clean_user = username.strip()
+        if not clean_user:
+            raise ValueError("Username must not be empty.")
+        now_iso = utc_now_iso()
+        with self._lock:
+            with self._conn:
+                cur = self._conn.execute(
+                    "UPDATE users SET password_hash = ?, updated_at = ? WHERE LOWER(username) = LOWER(?)",
+                    (password_hash, now_iso, clean_user),
+                )
+                return cur.rowcount > 0
+
     def get_user_by_username(self, username: str) -> Optional[dict[str, Any]]:
         with self._lock:
             row = self._conn.execute(
