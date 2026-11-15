@@ -1,6 +1,6 @@
 # Vision Surveillance (Local-First Windows CPU Edition)
 
-A privacy-first, local-first home surveillance system engineered for a **Windows 10/11 PC (CPU-only / Intel iGPU OpenVINO)**. Raw video, face recognition embeddings, and snapshots stay on your own computer; remote access is private over Tailscale, alerts go to your Telegram bot, and optional off-site event mirroring to Supabase is **disabled by default**.
+A privacy-first, local-first home surveillance system engineered for a **Windows 10/11 PC (CPU-only / Intel iGPU OpenVINO)**. Raw video, face recognition embeddings, and snapshots stay on your own computer; remote access is private over Tailscale or encrypted tunnels, alerts go to your Telegram bot, and optional off-site event mirroring to Supabase is **disabled by default**.
 
 ---
 
@@ -8,11 +8,11 @@ A privacy-first, local-first home surveillance system engineered for a **Windows
 
 ```mermaid
 flowchart TB
-    Cam["IP Camera (LAN RTSP :554)"] -->|RTSP TCP pull only| Cap["camera/rtsp_client.py<br/>(Backoff + Stale Watchdog)"]
-    Cam -->|RTSP TCP pull only| Go2["go2rtc (127.0.0.1:1984)<br/>(RTSP output disabled)"]
+    Cam["Camera Source<br/>(Webcam DSHOW/MSMF, RTSP TCP, HTTP, or File)"] -->|Modular Unified Interface| Cap["camera/factory.py<br/>(WebcamSource / URLStreamSource / FileSource)"]
+    Cap --> Health["camera/health.py<br/>(Exponential Backoff + Stale Watchdog)"]
 
     subgraph PC["Windows Host PC (Services Bound to 127.0.0.1)"]
-        Cap --> Engine["tools/run_engine.py<br/>(GracefulShutdown + FrameWatchdog + EngineSupervisor)"]
+        Health --> Engine["tools/run_engine.py / main.py<br/>(GracefulShutdown + FrameWatchdog + EngineSupervisor)"]
         Engine --> Motion["detection/person_detector.py<br/>(MOG2 Motion Gate + OpenVINO YOLO11n)"]
         Motion --> Track["tracking/tracker.py + zones.py<br/>(ByteTrack + Polygon Zones)"]
         Track --> Faces["faces/face_engine.py + matcher.py<br/>(YuNet + SFace Cosine Similarity, Local Only)"]
@@ -23,13 +23,12 @@ flowchart TB
         DB --> TG["notifications/telegram.py<br/>(OutboxWorker + Rate Limiter)"]
         DB --> SB["storage/cloud_sync.py<br/>(Opt-In CLOUD_SYNC=true Only)"]
         DB --> API["backend/app.py (FastAPI 127.0.0.1:8000)<br/>(Argon2 + JWT + Rate Limit + Size Limit + Headers)"]
-        Web["dashboard/ (React + Vite :5173)<br/>(Liquid Glass UI)"] -->|"/api/* & /ws/events"| API
-        Go2 -.->|"Planned WebRTC wiring<br/>(LivePage placeholder today)"| Web
+        Web["dashboard/ (React + Vite :5173)<br/>(Liquid Glass UI: Home, Events, People, Settings)"] -->|"/api/* & /ws/*"| API
     end
 
     TG -->|"HTTPS Bot API"| Telegram["Telegram App"]
     SB -->|"320px Thumbnails + Non-PII Rows<br/>(30-day cleanup)"| Supabase["Supabase (RLS Locked)"]
-    Phone["Phone / Remote Browser"] <-->|"Tailscale WireGuard HTTPS<br/>(tailscale serve -> 127.0.0.1:5173)"| Web
+    Phone["Phone / Remote Browser"] <-->|"Tailscale WireGuard / Cloudflare Tunnel"| Web
 ```
 
 ---
@@ -38,14 +37,14 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant C as IP Camera (RTSP)
+    participant C as Camera Source (Webcam / RTSP / File)
     participant E as Engine Pipeline
     participant M as Motion Gate + YOLO + ByteTrack
     participant F as Local Face Matcher
     participant D as SQLite WAL + Snapshots
     participant W as Workers (Telegram / WS / Cloud Sync)
 
-    C->>E: Latest substream frame (stream2 over TCP)
+    C->>E: Latest frame packet (Downscaled for AI + Full for Preview)
     E->>M: Check MOG2 foreground motion
     alt Motion detected (at target 3-5 FPS)
         M->>M: YOLO person detection (OpenVINO) + ByteTrack ID
@@ -65,20 +64,35 @@ sequenceDiagram
 
 ---
 
+## Liquid Glass Dashboard Experience
+
+The dashboard has been simplified into **four dedicated destinations**:
+
+1. **Home (`/`)**: Large hero live-view glass card with camera status chip, a compact "Now" strip (people in view, last alert, system health), and a vertical real-time timeline of recent events with thumbnails.
+2. **Events (`/events`)**: Event activity filterable by Type, Person (Known/Unknown), and Date range. Includes an integrated lightbox modal for snapshots and a delivery history tab for Telegram alerts.
+3. **People (`/people`)**: Household biometric registry with avatar grid, photo count, consent status, and a 3-5 photo enrollment modal with required privacy consent checkbox.
+4. **Settings (`/settings`)**: Grouped controls for Camera & Stream health, interactive Polygon Detection Zones canvas editor (with undo, draft, and instant saving), Alert dispatch triggers, collapsible Advanced Tuning (thresholds, cooldowns, retention days), and Remote Connection configuration.
+
+Navigation adapts seamlessly:
+- **Desktop**: Slim translucent glass side rail (`SideRail`) with glow indicators on active items.
+- **Mobile**: Floating glass dock (`Dock`) with 44px minimum touch targets and safe-area insets.
+
+---
+
 ## System Requirements
 
 - **OS:** Windows 10 or Windows 11 (64-bit)
 - **CPU / Memory:** Intel Core i3/i5/i7 (integrated graphics supported via OpenVINO) or compatible x64 CPU, 8 GB+ RAM recommended
 - **Python:** Python 3.11+
 - **Node.js:** Node.js 20+ and npm 10+ (for the React dashboard)
-- **Camera:** RTSP-capable IP camera on your local network providing H.264 `stream1` (main) and `stream2` (substream), or a local `.mp4` test video file
-- **Optional Tools:** Tailscale (private mobile HTTPS access), VeraCrypt (at-rest encryption for database & snapshots), `go2rtc.exe` (low-latency WebRTC relay)
+- **Camera:** Built-in / USB webcam, RTSP IP camera (H.264 over TCP), HTTP stream, or local `.mp4` test video file
+- **Optional Tools:** Cloudflare Tunnel or Tailscale (for remote access), VeraCrypt (at-rest encryption)
 
 ---
 
 ## Installation
 
-Open **PowerShell** inside the project folder (`vision-surveillance`):
+Open **PowerShell** inside the project directory:
 
 ### 1. Python Virtual Environment & Dependencies
 
@@ -111,109 +125,90 @@ cd ..
 
 ## Configuration (`.env`)
 
-Create your local `.env` file from `.env.example` (never commit `.env` — it is ignored by `.gitignore`):
+Create your local `.env` file from `.env.example`:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Key values to set in `.env`:
+Key configuration options:
 
-| Variable | Description | Default |
+| Variable | Description | Example Values |
 |---|---|---|
-| `CAMERA_IP`, `CAMERA_USER`, `CAMERA_PASS` | Local IP camera address & RTSP login (leave empty only if using `CAMERA_SOURCE` video file) | `""` |
-| `CAMERA_SOURCE` | Optional path to local `.mp4` test video instead of a live camera | `""` |
-| `JWT_SECRET_KEY` | Long random secret for dashboard JWT signing (`python -c "import secrets; print(secrets.token_urlsafe(48))"`) | `""` (required for API) |
-| `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram Bot alerts (keep `TELEGRAM_ENABLED=false` if unused) | `true` / `""` |
-| `API_HOST`, `API_PORT` | FastAPI listen address (validated to localhost or Tailscale `100.64.0.0/10`) | `127.0.0.1` / `8000` |
-| `CORS_ALLOWED_ORIGINS` | Allowed browser origins (add your `https://<pc>.<tailnet>.ts.net` URL for phone access) | localhost `:3000`, `:5173` |
-| `CLOUD_SYNC` | Optional off-site Supabase event/thumbnail mirror (off by default) | `false` |
-| `DISK_LOW_WARN_MB`, `DISK_CRITICAL_STOP_MB` | Disk-space warning and snapshot cutoff thresholds | `2048` / `512` |
-| `BACKUP_DIR`, `BACKUP_KEEP_COUNT` | Destination folder/drive and retention count for weekly SQLite hot backups | `backups` / `8` |
-
-### Create Owner Login & Draw Detection Zones
-
-1. Create the single owner account for the dashboard (open registration is disabled):
-   ```powershell
-   python tools\create_owner.py --username admin
-   ```
-2. Verify camera connection and preview live substream (`q` quits):
-   ```powershell
-   python tools\camera_check.py
-   # Or test with a local video file:
-   python tools\camera_check.py --source path\to\video.mp4
-   ```
-3. Draw restricted polygon zones (`config/zones.json`) via CLI or later in the browser:
-   ```powershell
-   python tools\draw_zones.py
-   ```
+| `CAMERA_SOURCE` | Video input type: `webcam`, `rtsp`, `url`, or `file` | `webcam` or `file` |
+| `WEBCAM_INDEX` | Windows webcam index (run `tools\list_cameras.py` to scan) | `0` |
+| `WEBCAM_BACKEND` | Video capture backend | `dshow` (DirectShow) or `msmf` (Media Foundation) |
+| `VIDEO_FILE_PATH` | Path to video file when `CAMERA_SOURCE=file` | `test_clips/sample_patrol.mp4` |
+| `CAMERA_IP`, `CAMERA_USER`, `CAMERA_PASS` | IP camera address & RTSP credentials (when `CAMERA_SOURCE=rtsp`) | `192.168.1.100`, `admin`, `secret` |
+| `JWT_SECRET_KEY` | Random secret for JWT auth tokens | Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram bot alerts | `true`, `123456:ABC...`, `987654` |
+| `API_HOST`, `API_PORT` | FastAPI listen address | `127.0.0.1` / `8000` |
+| `CORS_ALLOWED_ORIGINS` | Allowed browser origins | `http://127.0.0.1:5173,https://*.trycloudflare.com` |
 
 ---
 
-## Running the System
+## Camera Tools & Diagnostics
 
-### Interactive Development / Manual Run (3 Terminals)
-
-1. **Terminal 1 — FastAPI Backend (`127.0.0.1:8000`)**:
-   ```powershell
-   .\venv\Scripts\Activate.ps1
-   python -m backend.app
-   ```
-2. **Terminal 2 — Dashboard UI (`127.0.0.1:5173`)**:
-   ```powershell
-   cd dashboard
-   npm run preview -- --host 127.0.0.1 --port 5173
-   ```
-3. **Terminal 3 — Supervised Vision Engine**:
-   ```powershell
-   .\venv\Scripts\Activate.ps1
-   python tools\run_engine.py
-   ```
-4. **Optional — Local `go2rtc` WebRTC Bridge (`127.0.0.1:1984`, RTSP server disabled)**:
-   ```powershell
-   python tools\run_go2rtc.py
-   ```
-
-Open **`http://127.0.0.1:5173`** in your browser and sign in with the owner credentials you created.
-
-### Unattended Windows Startup & Hardening
-
-- **Auto-start & crash recovery:** `.\tools\service_runner.ps1 -Install -ProjectRoot (Get-Location).Path -BackupDest "E:\VisionBackups"` (see [WINDOWS_RELIABILITY.md](docs/WINDOWS_RELIABILITY.md))
-- **Private mobile HTTPS over Tailscale:** `tailscale serve --bg http://127.0.0.1:5173` (see [REMOTE_ACCESS.md](docs/REMOTE_ACCESS.md))
-- **Windows Firewall inbound lockdown:** `.\tools\harden_firewall.ps1 -Apply` (run as Administrator)
+- **List connected cameras & working backends:**
+  ```powershell
+  python tools\list_cameras.py
+  ```
+- **Diagnose any camera source:**
+  ```powershell
+  python tools\camera_check.py --source webcam:0
+  python tools\camera_check.py --source rtsp://admin:pass@192.168.1.50/stream2
+  python tools\camera_check.py --source test_clips/sample_patrol.mp4
+  ```
 
 ---
 
-## Further Documentation
+## Running the Application
 
-- [Family User Guide (Enrollment, Consent & Data Deletion)](docs/FAMILY_USER_GUIDE.md)
-- [Safe Remote Access with Tailscale](docs/REMOTE_ACCESS.md)
-- [Encrypting Snapshots & Database with VeraCrypt](docs/VERACRYPT_STORAGE.md)
-- [Windows Unattended Reliability & Power Settings](docs/WINDOWS_RELIABILITY.md)
-- [Optional Supabase Cloud Mirror (Off by Default)](docs/SUPABASE_SYNC.md)
-- [Threat Model & Security Acceptance Checklist](docs/THREAT_MODEL.md)
-- [Dependency Security Audit Guide](docs/DEPENDENCY_AUDIT.md)
-- [Release Checklist, Test Matrix & Known Limitations](docs/RELEASE_CHECKLIST.md)
+### 1. Start the FastAPI Backend
+```powershell
+.\venv\Scripts\Activate.ps1
+python -m backend.app
+```
+
+### 2. Start the Liquid Glass Dashboard
+```powershell
+cd dashboard
+npm run preview -- --port 5173
+```
+Access at `http://127.0.0.1:5173/`.
+
+### 3. Run the Live Vision Pipeline
+```powershell
+# Interactive preview with person detection and tracking:
+python main.py
+
+# Headless background execution:
+python main.py --headless
+```
 
 ---
 
 ## Troubleshooting
 
-- **Camera fails to connect / high latency:** Confirm `CAMERA_IP`, `CAMERA_USER`, `CAMERA_PASS`, and `CAMERA_SUB_STREAM=stream2` in `.env`, verify `python tools\camera_check.py` connects over RTSP TCP, and check camera H.264 settings on `stream2`.
-- **OpenVINO export warning on startup:** `PersonDetector` and `PersonTracker` automatically fall back to PyTorch CPU inference if OpenVINO model export fails. Run `python tools\benchmark.py --source path\to\video.mp4` to measure CPU inference latency.
-- **Dashboard shows `401 Unauthorized` or `429 Too Many Requests`:** Wait for the `Retry-After` cooldown (default 5 failed logins / 60s), verify `JWT_SECRET_KEY` is set in `.env`, and confirm the backend is running on `127.0.0.1:8000`.
-- **Blocked by CORS when opening via Tailscale on phone:** Add your exact `https://<pc-name>.<tailnet>.ts.net` origin to `CORS_ALLOWED_ORIGINS` in `.env` and restart the FastAPI backend.
-- **Snapshots stopped saving:** Check logs for `DiskSpaceGuard [CRITICAL]`. Free up space above `DISK_CRITICAL_STOP_MB` (default 512 MB) or run retention cleanup (`python -c "from config.settings import get_settings; from storage.db import Database; from storage.retention import run_retention; s=get_settings(); db=Database(settings=s); print(run_retention(db, retention_days=s.retention_days, snapshots_dir=s.snapshots_dir)); db.close()"`).
-- **VeraCrypt volume won't dismount (`in use`):** Stop `run_engine.py`, `uvicorn`, and `go2rtc` first (`Ctrl+C`) so SQLite WAL handles close cleanly before dismounting.
+- **Windows webcam is blocked / fails to open:**
+  1. Close any apps using the camera (Zoom, Teams, Skype, Windows Camera app, browser tabs).
+  2. Open **Windows Settings -> Privacy & security -> Camera** and ensure **"Let desktop apps access your camera"** is toggled ON.
+  3. Try switching `WEBCAM_BACKEND=msmf` instead of `dshow` in `.env`.
+  4. Run `python tools\list_cameras.py` to identify if your camera is index 1 or 2 instead of 0.
+  5. If the camera hardware is occupied, switch to `CAMERA_SOURCE=file` and `VIDEO_FILE_PATH=test_clips/sample_patrol.mp4` for development and testing.
+- **RTSP stream stalls or drops frames:**
+  The system automatically forces TCP transport (`rtsp_transport;tcp`) and features an exponential backoff reconnect watchdog. Ensure `stream2` (H.264 substream) is configured on your camera.
+- **Remote Access:**
+  Use Cloudflare Tunnel or Tailscale to securely expose port 8000/5173 without opening public router firewall ports. In the dashboard Settings page, enter the remote tunnel URL in the **Custom API Base URL** field.
 
 ---
 
-## Running Tests & Security Checks
+## Test Verification
 
 ```powershell
-# Activate venv with requirements installed, then run full pytest suite:
+# Run full unit and integration test suite:
 pytest -v
 
-# Scan workspace for hardcoded secrets & confirm .env is ignored:
+# Scan for hardcoded credentials:
 python tools\secret_scan.py
 ```
