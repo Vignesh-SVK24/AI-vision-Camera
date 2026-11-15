@@ -83,38 +83,28 @@ export const LoginPage: React.FC = () => {
             required
           />
 
-          <div>
+          <div className="lg-server-config-block">
             <button
               type="button"
               onClick={() => setShowServerConfig((prev) => !prev)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "rgba(255, 255, 255, 0.7)",
-                cursor: "pointer",
-                fontSize: "0.82rem",
-                padding: "0.25rem 0",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.35rem",
-              }}
+              className="lg-server-config-toggle"
             >
-              ⚙️ {showServerConfig ? "Hide" : "Configure"} Backend URL (for Vercel / Cloud)
+              ⚙️ {showServerConfig ? "Hide" : "Configure"} Backend Server URL (for Vercel / Cloud)
             </button>
             {showServerConfig && (
               <div style={{ marginTop: "0.5rem" }}>
                 <Input
                   label="Backend Server URL"
                   name="serverUrl"
-                  placeholder="e.g. https://brown-lamps-strive.loca.lt"
+                  placeholder="e.g. https://...trycloudflare.com"
                   value={serverUrl}
                   onChange={(e) => {
                     setServerUrl(e.target.value);
                     setCustomApiUrl(e.target.value.trim() || null);
                   }}
                 />
-                <p style={{ fontSize: "0.76rem", color: "rgba(255, 255, 255, 0.6)", marginTop: "0.25rem" }}>
-                  Paste your active tunnel URL (e.g. https://xxx.loca.lt) when accessing from Vercel.
+                <p className="lg-server-config-hint">
+                  Enter your Cloudflare Tunnel URL or remote IP to connect to the computer vision backend.
                 </p>
               </div>
             )}

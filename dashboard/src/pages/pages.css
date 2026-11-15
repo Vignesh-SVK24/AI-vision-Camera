@@ -1030,3 +1030,33 @@
   width: 100%;
   max-width: 420px;
 }
+
+.lg-server-config-block {
+  margin: var(--space-2) 0;
+}
+
+.lg-server-config-toggle {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.15s ease;
+}
+
+.lg-server-config-toggle:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.lg-server-config-hint {
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+  margin-top: 4px;
+  line-height: 1.35;
+}
