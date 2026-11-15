@@ -66,6 +66,7 @@ export const HomePage: React.FC = () => {
 
   const wsRef = useRef<WebSocket | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const liveConnectedRef = useRef<boolean>(false);
 
   const replaceFrameUrl = (nextUrl: string | null) => {
     const prev = blobUrlRef.current;
@@ -112,6 +113,7 @@ export const HomePage: React.FC = () => {
     const connectLiveWs = () => {
       const token = getAccessToken();
       if (!token) {
+        liveConnectedRef.current = false;
         setLiveConnected(false);
         return;
       }
@@ -123,6 +125,7 @@ export const HomePage: React.FC = () => {
 
         ws.onopen = () => {
           if (!cancelled) {
+            liveConnectedRef.current = true;
             setLiveConnected(true);
             setStreamError(null);
           }
@@ -146,19 +149,29 @@ export const HomePage: React.FC = () => {
               : new Blob([event.data as ArrayBuffer], { type: "image/jpeg" });
           const nextUrl = URL.createObjectURL(blob);
           replaceFrameUrl(nextUrl);
+          liveConnectedRef.current = true;
           setLiveConnected(true);
           setStreamError(null);
         };
 
         ws.onerror = () => {
-          if (!cancelled) setLiveConnected(false);
+          if (!cancelled) {
+            liveConnectedRef.current = false;
+            setLiveConnected(false);
+          }
         };
 
         ws.onclose = () => {
-          if (!cancelled) setLiveConnected(false);
+          if (!cancelled) {
+            liveConnectedRef.current = false;
+            setLiveConnected(false);
+          }
         };
       } catch {
-        if (!cancelled) setLiveConnected(false);
+        if (!cancelled) {
+          liveConnectedRef.current = false;
+          setLiveConnected(false);
+        }
       }
     };
 
@@ -166,21 +179,21 @@ export const HomePage: React.FC = () => {
 
     // Periodic fallback snapshot if WS is offline
     fallbackTimer = window.setInterval(async () => {
-      if (!liveConnected && !cancelled) {
+      if (!liveConnectedRef.current && !cancelled) {
         try {
           const url = await apiClient.fetchLiveSnapshotBlobUrl();
           if (!cancelled) {
             replaceFrameUrl(url);
-            setLiveConnected(true);
           }
         } catch {
           // ignore
         }
       }
-    }, 2000);
+    }, 2500);
 
     return () => {
       cancelled = true;
+      liveConnectedRef.current = false;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -188,7 +201,7 @@ export const HomePage: React.FC = () => {
       if (fallbackTimer !== null) clearInterval(fallbackTimer);
       replaceFrameUrl(null);
     };
-  }, [liveConnected]);
+  }, []);
 
   const isOnline = cameraStatus?.status === "online" || liveConnected;
   const recentIntrusion = events.find((e) => e.event_type.includes("intrusion") || e.event_type.includes("zone"));
