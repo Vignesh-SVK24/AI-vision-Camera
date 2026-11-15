@@ -14,7 +14,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import cv2
-import numpy as np
 
 
 def probe_camera(

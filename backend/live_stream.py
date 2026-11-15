@@ -9,7 +9,6 @@ from typing import Any, Callable, Optional
 
 import cv2
 
-from camera.base import CameraSource
 from camera.factory import create_camera_source
 from config.settings import Settings, get_settings
 

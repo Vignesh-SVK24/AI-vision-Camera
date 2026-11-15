@@ -2,28 +2,23 @@
 
 from __future__ import annotations
 
-import logging
-import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
-import pytest
 
 from camera.base import (
-    CameraSource,
     CameraStatus,
-    FramePacket,
     downscale_frame,
     mask_sensitive_text,
     mask_url_credentials,
 )
-from camera.factory import build_rtsp_url, create_camera_source
+from camera.factory import create_camera_source
 from camera.file_source import FileSource, generate_synthetic_test_clip
-from camera.health import CameraHealthWatchdog, ReconnectBackoff
+from camera.health import ReconnectBackoff
 from camera.url_stream import URLStreamSource
-from camera.webcam import WebcamSource, parse_webcam_source
+from camera.webcam import WebcamSource
 from config.settings import Settings
 
 

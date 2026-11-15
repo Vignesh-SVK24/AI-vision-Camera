@@ -2,25 +2,16 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
-import os
-from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import quote
 
 import numpy as np
 
-from camera.base import (
-    CameraSource,
-    CameraStatus,
-    FramePacket,
-    mask_sensitive_text,
-    mask_url_credentials,
-)
-from camera.factory import build_rtsp_url as factory_build_rtsp_url, create_camera_source
+from camera.base import CameraSource, CameraStatus, FramePacket
+from camera.factory import create_camera_source
 from camera.file_source import FileSource
-from camera.url_stream import URLStreamSource, ensure_rtsp_tcp_transport
+from camera.url_stream import ensure_rtsp_tcp_transport
 from camera.webcam import WebcamSource, default_capture_factory, parse_webcam_source
 from config.settings import Settings, get_settings
 

@@ -11,7 +11,6 @@ from typing import Any, Optional
 import cv2
 import numpy as np
 
-from camera.base import CameraStatus
 from camera.factory import create_camera_source
 from config.logging_config import setup_logging
 from config.settings import get_settings

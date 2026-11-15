@@ -9,7 +9,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 # Ensure project root is importable when running `python tools/benchmark.py`.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

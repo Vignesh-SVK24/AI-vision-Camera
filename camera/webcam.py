@@ -9,7 +9,6 @@ import time
 from typing import Any, Callable, Optional
 
 import cv2
-import numpy as np
 
 from camera.base import CameraSource, CameraStatus
 from camera.health import CameraHealthWatchdog, ReconnectBackoff

@@ -10,7 +10,7 @@ from typing import Iterable, Optional
 import numpy as np
 
 from config.settings import Settings, get_settings
-from faces.face_engine import DetectedFace, FaceEngine, l2_normalize
+from faces.face_engine import FaceEngine, l2_normalize
 from storage.db import Database
 from tracking.tracker import TrackedPerson
 
@@ -27,15 +27,6 @@ class FaceMatch:
     score: float
     person_id: Optional[int]
     matched: bool
-
-
-def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Compute cosine similarity between two 1-D vectors."""
-    va = l2_normalize(a)
-    vb = l2_normalize(b)
-    if va.size == 0 or vb.size == 0 or va.shape != vb.shape:
-        return 0.0
-    return float(np.clip(np.dot(va, vb), -1.0, 1.0))
 
 
 @dataclass

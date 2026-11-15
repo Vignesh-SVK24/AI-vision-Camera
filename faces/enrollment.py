@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import cv2
 import numpy as np

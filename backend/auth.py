@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 import jwt
 from argon2 import PasswordHasher
