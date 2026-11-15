@@ -34,7 +34,7 @@ def _run_pipeline_worker(
     disk_guard: DiskSpaceGuard,
 ) -> int:
     """Run one camera/detection/tracking/face/event cycle until stopped or stalled."""
-    from camera.rtsp_client import RTSPCamera
+    from camera.factory import create_camera_source
     from detection.person_detector import PersonDetector
     from events.event_manager import EventManager
     from faces.matcher import FaceMatcher, TrackIdentityCache
@@ -42,7 +42,7 @@ def _run_pipeline_worker(
     from tracking.zones import ZoneMonitor
 
     event_manager = EventManager(db, settings=settings, disk_guard=disk_guard)
-    camera = RTSPCamera(settings=settings)
+    camera = create_camera_source(settings=settings)
 
     def _on_camera_event(evt: str, details: dict[str, object]) -> None:
         if evt == "connected":

@@ -11,7 +11,8 @@ from typing import Any, Optional
 import cv2
 import numpy as np
 
-from camera.rtsp_client import RTSPCamera
+from camera.base import CameraStatus
+from camera.factory import create_camera_source
 from config.logging_config import setup_logging
 from config.settings import get_settings
 
@@ -129,16 +130,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     status_holder: dict[str, str] = {"label": "CONNECTING"}
 
     def on_camera_event(event: str, payload: dict[str, Any]) -> None:
-        if event == "connected":
+        if event in ("connected", "camera_online"):
             status_holder["label"] = "CONNECTED"
-        elif event == "disconnected":
+        elif event in ("disconnected", "camera_offline"):
             reason = payload.get("reason", "unknown")
             status_holder["label"] = f"DISCONNECTED ({reason})"
         logger.info("Camera event: %s | %s", event, payload.get("source", ""))
 
-    camera = RTSPCamera(
+    camera = create_camera_source(
         settings=settings,
-        stream=args.stream,
         source=active_source,
         on_event=on_camera_event,
     )

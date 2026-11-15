@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import cv2
 import numpy as np
 
-from camera.rtsp_client import RTSPCamera
+from camera.factory import create_camera_source
 from config.logging_config import setup_logging
 from config.settings import Settings, get_settings
 from tracking.tracker import PersonTracker, draw_tracks
@@ -50,7 +50,7 @@ def _grab_snapshot(
             raise RuntimeError(f"Could not read image file: {image_path}")
         return img
 
-    camera = RTSPCamera(settings=settings, stream=stream, source=source)
+    camera = create_camera_source(settings=settings, source=source)
     deadline = time.monotonic() + timeout
     with camera:
         while time.monotonic() < deadline:
@@ -198,7 +198,7 @@ def run_zone_preview(
     zones = load_zones(zones_path)
     monitor = ZoneMonitor(zones)
     tracker = PersonTracker(settings=settings)
-    camera = RTSPCamera(settings=settings, stream=stream, source=source)
+    camera = create_camera_source(settings=settings, source=source)
 
     cv2.namedWindow(PREVIEW_WINDOW, cv2.WINDOW_NORMAL)
     last_seq = 0

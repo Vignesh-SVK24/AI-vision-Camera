@@ -1,4 +1,4 @@
-"""Live camera preview tool displaying substream, FPS counter, and connection status."""
+"""Live camera preview and diagnosis tool for any camera source (webcam, URL/RTSP, or file)."""
 
 from __future__ import annotations
 
@@ -17,13 +17,13 @@ if str(PROJECT_ROOT) not in sys.path:
 import cv2
 import numpy as np
 
-from camera.rtsp_client import RTSPCamera
+from camera.factory import create_camera_source
 from config.logging_config import setup_logging
 from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-WINDOW_NAME = "Camera Check (press 'q' to quit)"
+WINDOW_NAME = "Camera Check & Diagnosis (press 'q' to quit)"
 
 
 def _draw_overlay(
@@ -32,11 +32,12 @@ def _draw_overlay(
     connected: bool,
     fps: float,
     source_label: str,
+    resolution: str,
 ) -> np.ndarray:
     canvas = frame.copy()
     status_color = (0, 220, 0) if connected else (0, 0, 255)
 
-    cv2.rectangle(canvas, (10, 10), (480, 95), (20, 20, 20), thickness=-1)
+    cv2.rectangle(canvas, (10, 10), (500, 115), (20, 20, 20), thickness=-1)
     cv2.putText(
         canvas,
         f"Status: {status_text}",
@@ -49,7 +50,7 @@ def _draw_overlay(
     )
     cv2.putText(
         canvas,
-        f"FPS: {fps:.1f}",
+        f"FPS: {fps:.1f} | Res: {resolution}",
         (20, 62),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.65,
@@ -59,25 +60,35 @@ def _draw_overlay(
     )
     cv2.putText(
         canvas,
-        f"Source: {source_label[:48]}",
-        (20, 86),
+        f"Source: {source_label[:46]}",
+        (20, 88),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.48,
+        0.5,
         (200, 200, 200),
+        1,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        canvas,
+        "Press 'q' in this window to exit",
+        (20, 108),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.42,
+        (160, 160, 160),
         1,
         cv2.LINE_AA,
     )
     return canvas
 
 
-def _placeholder_frame(width: int = 640, height: int = 360) -> np.ndarray:
+def _placeholder_frame(width: int = 640, height: int = 480) -> np.ndarray:
     frame = np.zeros((height, width, 3), dtype=np.uint8)
     cv2.putText(
         frame,
-        "Waiting for video frames...",
-        (130, height // 2),
+        "Connecting to camera source...",
+        (90, height // 2),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,
+        0.75,
         (180, 180, 180),
         2,
         cv2.LINE_AA,
@@ -87,18 +98,24 @@ def _placeholder_frame(width: int = 640, height: int = 360) -> np.ndarray:
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Preview live RTSP substream or test video file with FPS and status."
-    )
-    parser.add_argument(
-        "--stream",
-        choices=("sub", "main"),
-        default="sub",
-        help="RTSP stream profile to display (default: sub).",
+        description="Diagnose and preview any camera source (webcam, RTSP/HTTP URL, or file)."
     )
     parser.add_argument(
         "--source",
         default=None,
-        help="Optional video file path or RTSP URL override.",
+        help="Camera source override (e.g. 'webcam', 'rtsp://...', 'test_clips/sample.mp4').",
+    )
+    parser.add_argument(
+        "--index",
+        type=int,
+        default=None,
+        help="Webcam device index override (default: from .env or 0).",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=("dshow", "msmf"),
+        default=None,
+        help="Webcam backend override ('dshow' or 'msmf').",
     )
     return parser.parse_args(argv)
 
@@ -111,22 +128,23 @@ def main(argv: Optional[list[str]] = None) -> int:
     status_holder: dict[str, str] = {"label": "CONNECTING"}
 
     def on_camera_event(event: str, payload: dict[str, Any]) -> None:
-        if event == "connected":
+        if event == "camera_online":
             status_holder["label"] = "CONNECTED"
-        elif event == "disconnected":
-            reason = payload.get("reason", "unknown")
-            status_holder["label"] = f"DISCONNECTED ({reason})"
+        elif event == "camera_offline":
+            status_holder["label"] = "DISCONNECTED"
         logger.info("Camera event: %s | %s", event, payload.get("source", ""))
 
-    camera = RTSPCamera(
+    camera = create_camera_source(
         settings=settings,
-        stream=args.stream,
         source=args.source,
+        index=args.index,
+        backend=args.backend,
         on_event=on_camera_event,
     )
 
     display_fps = 0.0
     last_render_time = time.monotonic()
+    resolution_str = "Unknown"
 
     try:
         camera.start()
@@ -145,14 +163,20 @@ def main(argv: Optional[list[str]] = None) -> int:
                     else (0.85 * display_fps + 0.15 * instant_fps)
                 )
 
+            if ok and frame is not None:
+                resolution_str = f"{frame.shape[1]}x{frame.shape[0]}"
+                canvas = frame
+            else:
+                canvas = _placeholder_frame()
+
             shown_fps = camera.fps if camera.fps > 0 else display_fps
-            canvas = frame if ok and frame is not None else _placeholder_frame()
             annotated = _draw_overlay(
                 canvas,
-                status_text=status_holder["label"],
+                status_text=camera.status.value.upper(),
                 connected=camera.is_connected,
                 fps=shown_fps,
                 source_label=camera.masked_source,
+                resolution=resolution_str,
             )
             cv2.imshow(WINDOW_NAME, annotated)
 

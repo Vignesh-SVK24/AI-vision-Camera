@@ -54,7 +54,7 @@ def _ensure_optional_stubs() -> None:
 
 _ensure_optional_stubs()
 
-from camera.rtsp_client import RTSPCamera  # noqa: E402
+from camera import RTSPCamera  # noqa: E402
 from config.settings import Settings  # noqa: E402
 from events.event_manager import EventManager  # noqa: E402
 from notifications.telegram import (  # noqa: E402

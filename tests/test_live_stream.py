@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from backend.app import create_app
 from backend.auth import create_owner_account
 from backend.live_stream import LiveCameraManager
-from camera.rtsp_client import RTSPCamera, default_capture_factory, parse_webcam_source
+from camera import RTSPCamera, default_capture_factory, parse_webcam_source
 from config.settings import Settings
 from storage.db import Database
 

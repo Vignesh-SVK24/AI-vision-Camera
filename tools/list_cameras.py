@@ -1,4 +1,4 @@
-"""Camera index discovery tool scanning DirectShow cameras on Windows."""
+"""Camera discovery and hardware diagnostic tool scanning DirectShow and MSMF on Windows."""
 
 from __future__ import annotations
 
@@ -17,17 +17,21 @@ import cv2
 import numpy as np
 
 
-def scan_single_camera(
+def probe_camera(
     index: int,
+    backend_name: str,
     *,
     capture_factory: Optional[Callable[[int, int], Any]] = None,
-    warmup_frames: int = 2,
-    measure_frames: int = 10,
-    read_timeout: float = 2.0,
+    warmup_seconds: float = 3.0,
 ) -> Optional[dict[str, Any]]:
-    """Probe a single camera index via DirectShow; return specs or None if unopenable."""
+    """Test a specific camera index and backend; return properties or None if unopenable."""
     factory = capture_factory or cv2.VideoCapture
-    cap = factory(index, cv2.CAP_DSHOW)
+    flag = getattr(cv2, f"CAP_{backend_name.upper()}", 0)
+    try:
+        cap = factory(index, flag) if flag else factory(index)
+    except Exception:
+        return None
+
     if cap is None or not cap.isOpened():
         if cap is not None:
             try:
@@ -36,105 +40,98 @@ def scan_single_camera(
                 pass
         return None
 
+    frame_ok = False
+    width = 0
+    height = 0
+    t_start = time.perf_counter()
+    deadline = time.monotonic() + warmup_seconds
+    frames_read = 0
+
+    while time.monotonic() < deadline:
+        ok, frame = cap.read()
+        if ok and frame is not None and frame.size > 0:
+            frame_ok = True
+            frames_read += 1
+            height, width = frame.shape[:2]
+            if frames_read >= 5:
+                break
+        time.sleep(0.04)
+
+    t_elapsed = time.perf_counter() - t_start
+    fps = round(frames_read / max(0.001, t_elapsed), 1)
+
     try:
-        # Warm-up frames
-        for _ in range(warmup_frames):
-            ok, frame = cap.read()
-            if not ok or frame is None:
-                return None
+        cap.release()
+    except Exception:
+        pass
 
-        # Measure FPS and resolution
-        t_start = time.perf_counter()
-        frames_read = 0
-        last_frame: Optional[np.ndarray] = None
-        deadline = time.monotonic() + max(0.5, float(read_timeout))
-
-        while frames_read < measure_frames and time.monotonic() < deadline:
-            ok, frame = cap.read()
-            if ok and frame is not None:
-                frames_read += 1
-                last_frame = frame
-
-        duration = time.perf_counter() - t_start
-        measured_fps = (frames_read / duration) if duration > 0 and frames_read > 0 else 0.0
-
-        prop_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
-        prop_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-        actual_h, actual_w = last_frame.shape[:2] if last_frame is not None else (prop_h, prop_w)
-
-        return {
-            "index": index,
-            "width": actual_w or prop_w,
-            "height": actual_h or prop_h,
-            "fps": round(measured_fps, 1),
-        }
-    finally:
-        try:
-            cap.release()
-        except Exception:
-            pass
+    return {
+        "index": index,
+        "backend": backend_name,
+        "opened": True,
+        "frame_ok": frame_ok,
+        "width": width,
+        "height": height,
+        "fps": fps,
+    }
 
 
 def scan_cameras(
-    min_index: int = 0,
-    max_index: int = 5,
-    *,
-    capture_factory: Optional[Callable[[int, int], Any]] = None,
+    max_index: int = 4,
+    backends: tuple[str, ...] = ("dshow", "msmf"),
 ) -> list[dict[str, Any]]:
-    """Scan camera indexes from min_index to max_index using cv2.CAP_DSHOW."""
-    found: list[dict[str, Any]] = []
-    for idx in range(min_index, max_index + 1):
-        info = scan_single_camera(idx, capture_factory=capture_factory)
-        if info is not None:
-            found.append(info)
-    return found
+    """Scan all camera indexes across specified backends."""
+    results: list[dict[str, Any]] = []
+    print(f"Scanning camera indexes 0..{max_index} on backends {backends}...")
+    for idx in range(max_index + 1):
+        for b_name in backends:
+            res = probe_camera(idx, b_name)
+            if res is not None:
+                results.append(res)
+    return results
 
 
-def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Scan camera indexes 0 to 5 via DirectShow and report working cameras."
-    )
-    parser.add_argument(
-        "--min-index",
-        type=int,
-        default=0,
-        help="Start index to scan (default: 0).",
-    )
-    parser.add_argument(
-        "--max-index",
-        type=int,
-        default=5,
-        help="End index to scan (default: 5).",
-    )
-    return parser.parse_args(argv)
+def print_table(results: list[dict[str, Any]]) -> None:
+    """Format and display discovered cameras."""
+    print("=" * 70)
+    print(f"{'Index':<7} | {'Backend':<8} | {'Opened':<8} | {'Frame OK':<9} | {'Resolution':<12} | {'FPS':<6}")
+    print("-" * 70)
+    if not results:
+        print("  No cameras could be opened. Verify camera privacy settings and USB connections.")
+    for r in results:
+        res_str = f"{r['width']}x{r['height']}" if r["frame_ok"] else "N/A"
+        print(
+            f"{r['index']:<7} | {r['backend']:<8} | {str(r['opened']):<8} | "
+            f"{str(r['frame_ok']):<9} | {res_str:<12} | {r['fps']:<6.1f}"
+        )
+    print("=" * 70)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    args = parse_args(argv)
-    print("====================================================")
-    print(f"  Scanning DirectShow cameras (indexes {args.min_index} to {args.max_index})...")
-    print("====================================================")
+    parser = argparse.ArgumentParser(description="Scan and report available webcam devices on Windows.")
+    parser.add_argument("--max-index", type=int, default=3, help="Highest index to probe (default: 3).")
+    parser.add_argument(
+        "--backend",
+        choices=("dshow", "msmf", "all"),
+        default="all",
+        help="Backend to probe (default: all).",
+    )
+    args = parser.parse_args(argv)
 
-    working = scan_cameras(args.min_index, args.max_index)
+    backends = ("dshow", "msmf") if args.backend == "all" else (args.backend,)
+    results = scan_cameras(max_index=args.max_index, backends=backends)
+    print_table(results)
 
-    if not working:
-        print("\n[!] No working cameras found on indexes 0 to 5.", file=sys.stderr)
-        print("\nTroubleshooting fixes on Windows:", file=sys.stderr)
-        print("  1. Close any application using the camera (Zoom, Teams, OBS, Windows Camera app, browser tabs).", file=sys.stderr)
-        print("  2. Open Windows Settings -> Privacy & security -> Camera and turn ON 'Camera access' and 'Let desktop apps access your camera'.", file=sys.stderr)
-        print("  3. Check Device Manager -> Cameras / Imaging devices to ensure your camera is enabled.", file=sys.stderr)
-        return 1
+    working = [r for r in results if r["frame_ok"]]
+    if working:
+        best = working[0]
+        print(f"\n[RECOMMENDATION] Set in your .env file:")
+        print(f"CAMERA_SOURCE=webcam")
+        print(f"WEBCAM_INDEX={best['index']}")
+        print(f"WEBCAM_BACKEND={best['backend']}")
+    else:
+        print("\n[TROUBLESHOOTING] No working cameras detected. Check Windows Settings -> Privacy -> Camera.")
 
-    print(f"\nFound {len(working)} working camera(s):\n")
-    for cam in working:
-        print(f"  * Camera Index {cam['index']}: {cam['width']}x{cam['height']} @ {cam['fps']} FPS (DirectShow)")
-
-    recommended = working[0]["index"]
-    print("\n----------------------------------------------------")
-    print(f"RECOMMENDATION: Set this in your .env file:")
-    print(f"  CAMERA_SOURCE=webcam")
-    print(f"  WEBCAM_INDEX={recommended}")
-    print("----------------------------------------------------")
     return 0
 
 

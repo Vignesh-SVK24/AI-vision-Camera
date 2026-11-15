@@ -19,7 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import cv2
 import numpy as np
 
-from camera.rtsp_client import RTSPCamera
+from camera.factory import create_camera_source
 from config.logging_config import setup_logging
 from config.settings import Settings, get_settings
 from detection.person_detector import PersonDetector, draw_detections
@@ -271,7 +271,7 @@ def benchmark_live_stream(
     preview: bool = True,
 ) -> BenchmarkSummary:
     """Benchmark person detection on the configured live RTSP stream."""
-    camera = RTSPCamera(settings=settings, stream=stream)
+    camera = create_camera_source(settings=settings)
     last_seq = 0
 
     def _read_live() -> tuple[bool, Optional[np.ndarray], bool]:

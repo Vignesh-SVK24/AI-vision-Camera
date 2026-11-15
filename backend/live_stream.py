@@ -9,7 +9,8 @@ from typing import Any, Callable, Optional
 
 import cv2
 
-from camera.rtsp_client import RTSPCamera
+from camera.base import CameraSource
+from camera.factory import create_camera_source
 from config.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -66,8 +67,8 @@ class LiveCameraManager:
         if self._camera_factory is not None:
             return self._camera_factory(self._settings)
         # Allow slightly wider warm-up margin for Windows DirectShow webcam initialization.
-        return RTSPCamera(
-            settings=self._settings,
+        return create_camera_source(
+            self._settings,
             stale_timeout=max(self._settings.rtsp_stale_timeout, 12.0),
         )
 
