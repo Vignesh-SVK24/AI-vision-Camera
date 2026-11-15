@@ -1023,40 +1023,99 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: var(--color-base);
+  background: radial-gradient(circle at 50% 20%, rgba(87, 120, 119, 0.12) 0%, var(--color-base) 70%);
 }
 
 .login-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
+  padding: var(--space-8) var(--space-6);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 40px -12px rgba(22, 38, 35, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+}
+
+.lg-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.lg-login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.lg-login-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(41, 82, 85, 0.15) 0%, rgba(87, 120, 119, 0.25) 100%);
+  border: 1px solid rgba(87, 120, 119, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  box-shadow: 0 8px 16px -4px rgba(41, 82, 85, 0.12);
+  margin-bottom: var(--space-1);
+}
+
+.lg-login-title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+}
+
+.lg-login-subtitle {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}
+
+.lg-login-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .lg-server-config-block {
-  margin: var(--space-2) 0;
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(41, 82, 85, 0.08);
 }
 
 .lg-server-config-toggle {
   background: none;
   border: none;
-  color: var(--color-primary);
-  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   padding: 4px 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  transition: opacity 0.15s ease;
+  width: 100%;
+  transition: color 0.15s ease;
 }
 
 .lg-server-config-toggle:hover {
-  opacity: 0.8;
-  text-decoration: underline;
+  color: var(--color-primary);
 }
 
-.lg-server-config-hint {
-  font-size: 0.78rem;
-  color: var(--color-ink-muted);
-  margin-top: 4px;
-  line-height: 1.35;
+.lg-server-config-input {
+  margin-top: var(--space-3);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }

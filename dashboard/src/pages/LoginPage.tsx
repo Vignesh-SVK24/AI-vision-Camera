@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ApiError, getCustomApiUrl, setCustomApiUrl } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { Button, Chip, GlassCard, Input } from "../components/ui";
+import { Button, GlassCard, Input } from "../components/ui";
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -17,7 +17,7 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     if (!username.trim() || !password) {
-      setError("Please enter both username and password.");
+      setError("Please enter your username and password.");
       return;
     }
 
@@ -33,7 +33,7 @@ export const LoginPage: React.FC = () => {
             : err.message
         );
       } else {
-        setError("Login failed. Check your credentials and backend server URL.");
+        setError("Sign in failed. Check your credentials.");
       }
     } finally {
       setSubmitting(false);
@@ -43,45 +43,50 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="login-wrapper">
       <GlassCard variant="elevated" className="login-card">
-        <form onSubmit={handleSubmit} className="stack-md">
-          <div className="stack-sm">
-            <div className="row-wrap">
-              <Chip label="Local-First" variant="accent" dot />
-              <Chip label="Argon2 + JWT" variant="neutral" />
+        <form onSubmit={handleSubmit} className="lg-login-form">
+          <div className="lg-login-brand">
+            <div className="lg-login-icon" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
             </div>
-            <h1 className="page-title">Vision Surveillance</h1>
-            <p className="page-subtitle">
-              Sign in with the owner account created via{" "}
-              <code>tools/create_owner.py</code>.
-            </p>
+            <h1 className="lg-login-title">VisionGuard</h1>
+            <p className="lg-login-subtitle">Private Home Security</p>
           </div>
 
-          {error ? (
-            <div className="error-banner" role="alert">
-              {error}
+          {error && (
+            <div className="lg-error-banner" role="alert">
+              <span>{error}</span>
             </div>
-          ) : null}
+          )}
 
-          <Input
-            label="Username"
-            name="username"
-            autoComplete="username"
-            placeholder="owner"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
+          <div className="lg-login-fields">
+            <Input
+              label="Username"
+              name="username"
+              autoComplete="username"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
 
-          <Input
-            label="Password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+            <Input
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <Button type="submit" variant="primary" fullWidth loading={submitting}>
+            Sign In
+          </Button>
 
           <div className="lg-server-config-block">
             <button
@@ -89,30 +94,27 @@ export const LoginPage: React.FC = () => {
               onClick={() => setShowServerConfig((prev) => !prev)}
               className="lg-server-config-toggle"
             >
-              ⚙️ {showServerConfig ? "Hide" : "Configure"} Backend Server URL (for Vercel / Cloud)
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span>{showServerConfig ? "Hide server endpoint" : "Remote server endpoint"}</span>
             </button>
             {showServerConfig && (
-              <div style={{ marginTop: "0.5rem" }}>
+              <div className="lg-server-config-input">
                 <Input
-                  label="Backend Server URL"
+                  label="Endpoint URL"
                   name="serverUrl"
-                  placeholder="e.g. https://...trycloudflare.com"
+                  placeholder="https://...trycloudflare.com"
                   value={serverUrl}
                   onChange={(e) => {
                     setServerUrl(e.target.value);
                     setCustomApiUrl(e.target.value.trim() || null);
                   }}
                 />
-                <p className="lg-server-config-hint">
-                  Enter your Cloudflare Tunnel URL or remote IP to connect to the computer vision backend.
-                </p>
               </div>
             )}
           </div>
-
-          <Button type="submit" variant="primary" fullWidth loading={submitting}>
-            Sign In
-          </Button>
         </form>
       </GlassCard>
     </div>
