@@ -97,6 +97,7 @@ class WebcamSource(CameraSource):
         self._capture_factory = capture_factory or cv2.VideoCapture
 
         self._cap: Optional[Any] = None
+        self._cap_lock = threading.Lock()
         self._running = threading.Event()
         self._reconnect_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -203,12 +204,13 @@ class WebcamSource(CameraSource):
             self._thread.join(timeout=3.0)
         self._thread = None
 
-        if self._cap is not None:
-            try:
-                self._cap.release()
-            except Exception:
-                pass
-            self._cap = None
+        with self._cap_lock:
+            if self._cap is not None:
+                try:
+                    self._cap.release()
+                except Exception:
+                    pass
+                self._cap = None
 
         self._set_status(CameraStatus.DISCONNECTED)
         logger.info("WebcamSource stopped: %s", self.masked_source)
@@ -268,12 +270,14 @@ class WebcamSource(CameraSource):
 
             # Clean up before reconnecting or exiting
             self._reconnect_event.clear()
-            if self._cap is not None:
+            with self._cap_lock:
+                cap_to_release = self._cap
+                self._cap = None
+            if cap_to_release is not None:
                 try:
-                    self._cap.release()
+                    cap_to_release.release()
                 except Exception:
                     pass
-                self._cap = None
 
             if self._running.is_set():
                 self._set_status(CameraStatus.DISCONNECTED)

@@ -51,6 +51,7 @@ class LiveCameraManager:
         self._jpeg_quality = jpeg_quality
 
         self._lock = threading.Lock()
+        self._device_lock = threading.Lock()
         self._camera: Any = None
         self._viewers = 0
         self._cached_seq = -1
@@ -73,54 +74,57 @@ class LiveCameraManager:
 
     def acquire(self) -> None:
         """Increment viewer refcount and start the shared camera if not already running."""
-        with self._lock:
-            self._viewers += 1
-            if self._camera is not None:
-                return
-            try:
-                cam = self._build_camera()
-                cam.start()
-                self._camera = cam
-                self._cached_seq = -1
-                self._cached_jpeg = None
-                self._last_error = None
-            except Exception as exc:
-                self._viewers = max(0, self._viewers - 1)
-                self._last_error = str(exc)
-                logger.warning("Unable to start live web camera source: %s", exc)
-                raise
+        with self._device_lock:
+            with self._lock:
+                self._viewers += 1
+                if self._camera is not None:
+                    return
+                try:
+                    cam = self._build_camera()
+                    cam.start()
+                    self._camera = cam
+                    self._cached_seq = -1
+                    self._cached_jpeg = None
+                    self._last_error = None
+                except Exception as exc:
+                    self._viewers = max(0, self._viewers - 1)
+                    self._last_error = str(exc)
+                    logger.warning("Unable to start live web camera source: %s", exc)
+                    raise
 
     def release(self) -> None:
         """Decrement viewer refcount and stop the shared camera when no viewers remain."""
-        cam_to_stop = None
-        with self._lock:
-            if self._viewers > 0:
-                self._viewers -= 1
-            if self._viewers == 0 and self._camera is not None:
+        with self._device_lock:
+            cam_to_stop = None
+            with self._lock:
+                if self._viewers > 0:
+                    self._viewers -= 1
+                if self._viewers == 0 and self._camera is not None:
+                    cam_to_stop = self._camera
+                    self._camera = None
+                    self._cached_seq = -1
+                    self._cached_jpeg = None
+            if cam_to_stop is not None:
+                try:
+                    cam_to_stop.stop()
+                except Exception as exc:
+                    logger.debug("Error stopping live camera: %s", exc)
+
+    def close(self) -> None:
+        """Force-stop the shared camera during application shutdown."""
+        with self._device_lock:
+            cam_to_stop = None
+            with self._lock:
+                self._viewers = 0
                 cam_to_stop = self._camera
                 self._camera = None
                 self._cached_seq = -1
                 self._cached_jpeg = None
-        if cam_to_stop is not None:
-            try:
-                cam_to_stop.stop()
-            except Exception as exc:
-                logger.debug("Error stopping live camera: %s", exc)
-
-    def close(self) -> None:
-        """Force-stop the shared camera during application shutdown."""
-        cam_to_stop = None
-        with self._lock:
-            self._viewers = 0
-            cam_to_stop = self._camera
-            self._camera = None
-            self._cached_seq = -1
-            self._cached_jpeg = None
-        if cam_to_stop is not None:
-            try:
-                cam_to_stop.stop()
-            except Exception as exc:
-                logger.debug("Error closing live camera: %s", exc)
+            if cam_to_stop is not None:
+                try:
+                    cam_to_stop.stop()
+                except Exception as exc:
+                    logger.debug("Error closing live camera: %s", exc)
 
     def get_state(self) -> dict[str, Any]:
         """Return current connection state, FPS, and any startup error."""
